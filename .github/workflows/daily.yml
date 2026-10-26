@@ -61,6 +61,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data reports
           git commit -m "data: $(TZ=Asia/Shanghai date +%F)" || echo "no changes"
+          git pull --rebase -X theirs origin main || true
           git push
 
       - uses: actions/upload-pages-artifact@v3
