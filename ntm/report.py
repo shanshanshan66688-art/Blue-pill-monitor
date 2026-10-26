@@ -116,7 +116,7 @@ def build(daily, fl, calib, events, holders, status, out_path, lookback=250, tit
     else:
         hd_rows = "<tr><td colspan=6 class='muted'>还没有运行季报校准（python run_daily.py --quarterly 2026-09-30）</td></tr>"
 
-    st_rows = "".join(f"<tr><td>{_esc(k)}</td><td class='{'ok' if v[0] else 'bad'}'>{'正常' if v[0] else '失败'}</td><td class='muted'>{_esc(v[1])}</td></tr>"
+    st_rows = "".join(f"<tr><td style='white-space:nowrap'>{_esc(k)}</td><td style='white-space:nowrap' class='{'ok' if v[0] else 'bad'}'>{'正常' if v[0] else '失败'}</td><td class='muted' style='word-break:break-all'>{_esc(str(v[1])[:160])}</td></tr>"
                       for k, v in status.items())
 
     lv = int(r["level"])

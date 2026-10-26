@@ -162,8 +162,16 @@ def step_quarterly(con, report_date):
     return f"{n} 条国家队席位"
 
 
+def recent_quarter_ends(n=2):
+    """最近 n 个已结束的季度末日期（未披露的会返回空，下次运行再补）"""
+    t = dt.date.today()
+    q = [dt.date(t.year, m, d) for m, d in ((3, 31), (6, 30), (9, 30), (12, 31))]
+    q = [x for x in q if x < t] + [dt.date(t.year - 1, 12, 31), dt.date(t.year - 1, 9, 30)]
+    return [x.strftime("%Y-%m-%d") for x in sorted(set(q), reverse=True)[:n]]
+
+
 # ============================================================ 分析与报告
-def analyze_and_report(con, status, out_dir=C.REPORT_DIR, suffix=""):
+def analyze_and_report(con, status, out_dir=C.REPORT_DIR, suffix="", csv_dir="data"):
     shares = db.read(con, "SELECT date, code, shares FROM etf_shares")
     prices = db.read(con, "SELECT date, code, close FROM etf_price")
     idx = db.read(con, "SELECT * FROM index_daily")
@@ -179,11 +187,11 @@ def analyze_and_report(con, status, out_dir=C.REPORT_DIR, suffix=""):
     daily = signals.classify(pool, env)
     calib = signals.calibration(fl, daily, C.CORE_ETFS)
 
-    os.makedirs("data", exist_ok=True)
-    daily.to_csv("data/signals.csv", encoding="utf-8-sig")
-    fl["flow_yi"].to_csv("data/etf_flows_yi.csv", encoding="utf-8-sig")
+    os.makedirs(csv_dir, exist_ok=True)
+    daily.to_csv(os.path.join(csv_dir, "signals.csv"), encoding="utf-8-sig")
+    fl["flow_yi"].to_csv(os.path.join(csv_dir, "etf_flows_yi.csv"), encoding="utf-8-sig")
     if len(calib):
-        calib.to_csv("data/calibration.csv", encoding="utf-8-sig", index=False)
+        calib.to_csv(os.path.join(csv_dir, "calibration.csv"), encoding="utf-8-sig", index=False)
 
     ok = daily.dropna(subset=["pool_flow_yi"])
     last = ok[ok["n_etf"] >= 0.5 * ok["n_etf"].max()].index[-1]
@@ -212,7 +220,8 @@ def main():
         with db.connect("data/demo.db") as con:
             demo.populate(con)
             analyze_and_report(con, {"模拟数据": (True, "本报告全部为模拟数据，仅用于展示系统效果")},
-                               out_dir=os.path.join(C.REPORT_DIR, "demo"), suffix="（模拟数据示例）")
+                               out_dir=os.path.join(C.REPORT_DIR, "demo"), suffix="（模拟数据示例）",
+                               csv_dir=os.path.join("data", "demo"))
         return
 
     run_at = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -246,9 +255,12 @@ def main():
             st.run(con, run_at, "融资余额", step_margin, con)
             print("7/7 公告与快讯")
             st.run(con, run_at, "公告与快讯", step_events, con, days[-a.event_days:])
-        if a.quarterly:
-            print("季报校准：重点个股十大流通股东")
-            st.run(con, run_at, "季报十大流通股东", step_quarterly, con, a.quarterly)
+        periods = [a.quarterly] if a.quarterly else ([] if a.report_only else recent_quarter_ends())
+        for q in periods:
+            have = db.read(con, "SELECT COUNT(*) n FROM holders WHERE report_date=?", (q,))["n"][0]
+            if a.quarterly or have == 0:
+                print(f"季报校准：重点个股十大流通股东（{q}）")
+                st.run(con, run_at, f"十大流通股东 {q}", step_quarterly, con, q)
         analyze_and_report(con, st)
 
 
