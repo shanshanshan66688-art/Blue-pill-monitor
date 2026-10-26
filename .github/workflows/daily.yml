@@ -45,7 +45,20 @@ jobs:
           elif [ ! -f data/monitor.db ]; then
             ARGS="--backfill 250"
           fi
-          python run_daily.py $ARGS
+          mkdir -p logs
+          set -o pipefail
+          python -u diagnose.py 2>&1 | tee logs/last_run.log || true
+          python -u run_daily.py $ARGS 2>&1 | tee -a logs/last_run.log
+
+      - name: Save log
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f logs/last_run.log data 2>/dev/null || true
+          git commit -m "log: $(TZ=Asia/Shanghai date '+%F %T')" || echo "no changes"
+          git pull --rebase -X theirs origin main || true
+          git push || true
 
       - name: Build site
         run: |
@@ -57,8 +70,6 @@ jobs:
 
       - name: Save data
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data reports
           git commit -m "data: $(TZ=Asia/Shanghai date +%F)" || echo "no changes"
           git pull --rebase -X theirs origin main || true

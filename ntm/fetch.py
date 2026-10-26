@@ -3,8 +3,11 @@
 数据抓取层：全部使用 AKShare 的免费公开接口（数据来自上交所、深交所、东方财富、财联社）。
 每个函数只做"抓取 + 统一字段"，不做判断。任何一个数据源失败都不会影响其他数据源。
 """
+import socket
 import time
 import datetime as dt
+
+socket.setdefaulttimeout(30)   # 部分接口没有设置超时，防止一直卡住
 
 import pandas as pd
 
