@@ -155,11 +155,14 @@ def step_events(con, days):
 
 def step_quarterly(con, report_date):
     from ntm import fetch
-    n = 0
+    n, pending = 0, []
     for s in C.QUARTERLY_STOCKS:
-        n += db.upsert(con, "holders", fetch.top10_free_holders(s, report_date, C.NATIONAL_TEAM_HOLDER_KEYWORDS))
+        try:
+            n += db.upsert(con, "holders", fetch.top10_free_holders(s, report_date, C.NATIONAL_TEAM_HOLDER_KEYWORDS))
+        except Exception:
+            pending.append(s)   # 多半是该公司这一期还没披露
         time.sleep(0.5)
-    return f"{n} 条国家队席位"
+    return f"{n} 条国家队席位" + (f"；尚未披露：{','.join(pending)}" if pending else "")
 
 
 def recent_quarter_ends(n=2):
@@ -258,7 +261,7 @@ def main():
         periods = [a.quarterly] if a.quarterly else ([] if a.report_only else recent_quarter_ends())
         for q in periods:
             have = db.read(con, "SELECT COUNT(*) n FROM holders WHERE report_date=?", (q,))["n"][0]
-            if a.quarterly or have == 0:
+            if a.quarterly or have < 3 * len(C.QUARTERLY_STOCKS) // 2:   # 没抓全的季度每次都补
                 print(f"季报校准：重点个股十大流通股东（{q}）")
                 st.run(con, run_at, f"十大流通股东 {q}", step_quarterly, con, q)
         analyze_and_report(con, st)
