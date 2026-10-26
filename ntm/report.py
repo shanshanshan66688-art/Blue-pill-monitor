@@ -199,7 +199,7 @@ th{{color:var(--t2);font-weight:500;white-space:nowrap}} td.n{{text-align:right;
 <div class="grid2" style="margin-top:12px">
   <div class="card"><div class="k">沪深300</div><div id="c_bench" class="chart small"></div></div>
   <div class="card"><div class="k">核心池总份额（亿份）</div><div id="c_shares" class="chart small"></div></div>
-  <div class="card"><div class="k">两市成交额（亿元）· 当前分位 {tp}</div><div id="c_turn" class="chart small"></div></div>
+  <div class="card"><div class="k">全市场成交额（亿元，中证全指）· 当前分位 {tp}</div><div id="c_turn" class="chart small"></div></div>
   <div class="card"><div class="k">融资余额（亿元）· 当前分位 {mp}</div><div id="c_margin" class="chart small"></div></div>
 </div>
 

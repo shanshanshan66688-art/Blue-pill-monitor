@@ -39,8 +39,7 @@ def populate(con, n=260, seed=7):
     idx_rows = []
     for i, d in enumerate(dates):
         idx_rows.append((d, C.BENCHMARK_INDEX, bench[i], turnover[i] * 0.4))
-        idx_rows.append((d, "sh000001", bench[i] * 0.85, turnover[i] * 0.45))
-        idx_rows.append((d, "sz399001", bench[i] * 2.7, turnover[i] * 0.55))
+        idx_rows.append((d, "csi000985", bench[i] * 1.4, turnover[i]))
         idx_rows.append((d, "sh000852", small[i], turnover[i] * 0.2))
         idx_rows.append((d, "sz399006", small[i] * 0.35, turnover[i] * 0.15))
     db.upsert(con, "index_daily", pd.DataFrame(idx_rows, columns=["date", "symbol", "close", "amount"]))

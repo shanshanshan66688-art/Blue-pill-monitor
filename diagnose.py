@@ -15,6 +15,10 @@ end = today.strftime("%Y%m%d")
 
 TESTS = [
     ("指数日线(东财)", lambda: ak.stock_zh_index_daily_em(symbol="sh000300", start_date=start, end_date=end)),
+    ("中证指数日线", lambda: ak.stock_zh_index_hist_csindex(symbol="000985", start_date=start, end_date=end)),
+    ("新浪指数日线", lambda: ak.stock_zh_index_daily(symbol="sz399006")),
+    ("新浪ETF日线", lambda: ak.fund_etf_hist_sina(symbol="sh510300")),
+    ("新浪ETF日线(深)", lambda: ak.fund_etf_hist_sina(symbol="sz159919")),
     ("上交所ETF份额", lambda: ak.fund_etf_scale_sse(date=d)),
     ("深交所ETF份额", lambda: ak.fund_etf_scale_szse()),
     ("东财ETF实时", lambda: ak.fund_etf_spot_em()),

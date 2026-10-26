@@ -50,11 +50,19 @@ class Status(dict):
 def step_index(con, start, end):
     from ntm import fetch
     syms = [C.BENCHMARK_INDEX] + C.TURNOVER_INDEXES + list(C.EXTRA_INDEXES)
-    n = 0
+    n, msgs = 0, []
     for s in dict.fromkeys(syms):
-        n += db.upsert(con, "index_daily", fetch.index_daily(s, start, end))
+        try:
+            df = fetch.index_daily(s, start, end)
+            n += db.upsert(con, "index_daily", df)
+            msgs.append(f"{s}←{df.attrs.get('source', '?')}")
+        except Exception as e:
+            msgs.append(f"{s} 失败")
+            print(f"  [失败] 指数 {s}: {e}")
         time.sleep(0.3)
-    return f"{n} 行"
+    if n == 0:
+        raise RuntimeError("所有指数都没拿到：" + "，".join(msgs))
+    return f"{n} 行（{'，'.join(msgs)}）"
 
 
 def trading_days(con, start, end):
@@ -114,11 +122,17 @@ def step_em_backup(con, as_of):
 
 def step_prices(con, start, end):
     from ntm import fetch
-    n = 0
+    n, bad = 0, []
     for c in CODES:
-        n += db.upsert(con, "etf_price", fetch.etf_prices(c, start, end))
+        try:
+            n += db.upsert(con, "etf_price", fetch.etf_prices(c, start, end))
+        except Exception as e:
+            bad.append(c)
+            print(f"  [失败] ETF行情 {c}: {e}")
         time.sleep(0.3)
-    return f"{n} 行"
+    if n == 0:
+        raise RuntimeError("所有ETF行情都没拿到")
+    return f"{n} 行" + (f"，失败：{','.join(bad)}" if bad else "")
 
 
 def step_margin(con):

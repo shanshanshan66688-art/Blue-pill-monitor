@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-数据抓取层：全部使用 AKShare 的免费公开接口（数据来自上交所、深交所、东方财富、财联社）。
+数据抓取层：全部使用 AKShare 的免费公开接口（数据来自上交所、深交所、中证指数、新浪、东方财富、财联社）。
 每个函数只做"抓取 + 统一字段"，不做判断。任何一个数据源失败都不会影响其他数据源。
 """
 import socket
@@ -43,19 +43,61 @@ def _d(x):
     return pd.to_datetime(x).strftime("%Y-%m-%d")
 
 
-# ---------------------------------------------------------------- 交易日历
-def index_daily(symbol, start, end):
-    """指数日线。返回 date, symbol, close, amount(亿元)"""
+def _first(sources):
+    """按顺序尝试多个数据源，返回第一个拿到非空数据的结果和来源名。"""
+    errors = []
+    for name, fn in sources:
+        try:
+            df = fn()
+            if df is not None and len(df):
+                return df, name
+            errors.append(f"{name}: 空")
+        except Exception as e:
+            errors.append(f"{name}: {type(e).__name__}")
+    raise RuntimeError("全部数据源失败 → " + "；".join(errors))
+
+
+# ---------------------------------------------------------------- 指数
+def _idx_em(symbol, start, end):
     df = _retry(ak.stock_zh_index_daily_em, symbol=symbol,
-                start_date=start.replace("-", ""), end_date=end.replace("-", ""))
-    if df is None or df.empty:
-        return pd.DataFrame(columns=["date", "symbol", "close", "amount"])
+                start_date=start.replace("-", ""), end_date=end.replace("-", ""), tries=2)
+    return pd.DataFrame({"date": df["date"], "close": df["close"], "amount": df["amount"]})
+
+
+def _idx_csindex(code, start, end):
+    df = _retry(ak.stock_zh_index_hist_csindex, symbol=code,
+                start_date=start.replace("-", ""), end_date=end.replace("-", ""), tries=2)
+    return pd.DataFrame({"date": df["日期"], "close": df["收盘"], "amount": df["成交金额"]})
+
+
+def _idx_sina(symbol, start, end):
+    df = _retry(ak.stock_zh_index_daily, symbol=symbol, tries=2)
+    d = pd.to_datetime(df["date"])
+    df = df[(d >= pd.Timestamp(start)) & (d <= pd.Timestamp(end))]
+    return pd.DataFrame({"date": df["date"], "close": df["close"], "amount": float("nan")})
+
+
+def index_daily(symbol, start, end):
+    """
+    指数日线。返回 date, symbol, close, amount(亿元)
+    symbol 形如 sh000300 / sz399006；以 csi 开头（如 csi000985）表示只从中证指数官网取。
+    依次尝试：中证指数官网（有成交额）→ 东方财富 → 新浪（无成交额）
+    """
+    code = symbol[-6:]
+    if symbol.startswith("csi"):
+        srcs = [("中证指数", lambda: _idx_csindex(code, start, end))]
+    else:
+        srcs = [("中证指数", lambda: _idx_csindex(code, start, end)),
+                ("东方财富", lambda: _idx_em(symbol, start, end)),
+                ("新浪", lambda: _idx_sina(symbol, start, end))]
+    df, src = _first(srcs)
     out = pd.DataFrame({
         "date": pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d"),
         "symbol": symbol,
-        "close": pd.to_numeric(df["close"], errors="coerce"),
-        "amount": _to_yi(df["amount"]),
+        "close": pd.to_numeric(df["close"], errors="coerce").values,
+        "amount": _to_yi(df["amount"]).values,
     })
+    out.attrs["source"] = src
     return out
 
 
@@ -109,18 +151,33 @@ def em_spot_shares(as_of, codes):
 
 
 # ---------------------------------------------------------------- ETF 行情
-def etf_prices(code, start, end):
+def _etf_em(code, start, end):
     df = _retry(ak.fund_etf_hist_em, symbol=code, period="daily",
-                start_date=start.replace("-", ""), end_date=end.replace("-", ""), adjust="")
-    if df is None or df.empty:
-        return pd.DataFrame(columns=["date", "code", "close", "amount", "pct"])
-    return pd.DataFrame({
-        "date": pd.to_datetime(df["日期"]).dt.strftime("%Y-%m-%d"),
+                start_date=start.replace("-", ""), end_date=end.replace("-", ""), adjust="", tries=2)
+    return pd.DataFrame({"date": df["日期"], "close": df["收盘"]})
+
+
+def _etf_sina(code, start, end):
+    prefix = "sh" if code.startswith("5") else "sz"
+    df = _retry(ak.fund_etf_hist_sina, symbol=prefix + code, tries=2)
+    d = pd.to_datetime(df["date"])
+    df = df[(d >= pd.Timestamp(start)) & (d <= pd.Timestamp(end))]
+    return pd.DataFrame({"date": df["date"], "close": df["close"]})
+
+
+def etf_prices(code, start, end):
+    """ETF收盘价（不复权，与份额相乘得到金额）。新浪 → 东方财富（东财对海外服务器不稳定）"""
+    df, src = _first([("新浪", lambda: _etf_sina(code, start, end)),
+                      ("东方财富", lambda: _etf_em(code, start, end))])
+    out = pd.DataFrame({
+        "date": pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d"),
         "code": code,
-        "close": pd.to_numeric(df["收盘"], errors="coerce"),
-        "amount": _to_yi(df["成交额"]),
-        "pct": pd.to_numeric(df["涨跌幅"], errors="coerce"),
+        "close": pd.to_numeric(df["close"], errors="coerce").values,
+        "amount": float("nan"),
+        "pct": float("nan"),
     })
+    out.attrs["source"] = src
+    return out
 
 
 # ---------------------------------------------------------------- 两融
