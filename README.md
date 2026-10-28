@@ -80,3 +80,7 @@ data/monitor.db    SQLite数据库（全部原始数据）
 data/signals.csv   每日判定结果，可用Excel打开
 reports/           每日报告
 ```
+
+## 七、许可
+
+代码以 [MIT 许可](LICENSE) 发布。数据来自各公开数据源，其权利归各自来源；本项目是推断工具，不构成投资建议。
