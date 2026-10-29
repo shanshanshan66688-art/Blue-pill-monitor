@@ -153,6 +153,11 @@ def step_events(con, days):
     return f"命中 {n} 条"
 
 
+def step_disclosures(con):
+    from ntm import disclosures
+    return disclosures.update(con, CODES)
+
+
 def step_quarterly(con, report_date):
     from ntm import fetch
     n, pending = 0, []
@@ -181,6 +186,7 @@ def analyze_and_report(con, status, out_dir=C.REPORT_DIR, suffix="", csv_dir="da
     mg = db.read(con, "SELECT * FROM margin")
     ev = db.read(con, "SELECT * FROM events")
     hd = db.read(con, "SELECT * FROM holders")
+    disc = db.read(con, "SELECT * FROM disclosures")
     if shares.empty:
         raise RuntimeError("库里还没有ETF份额数据。首次使用请先运行：python run_daily.py --backfill 250")
 
@@ -188,18 +194,18 @@ def analyze_and_report(con, status, out_dir=C.REPORT_DIR, suffix="", csv_dir="da
     pool = signals.pool_daily(fl)
     env = signals.environment(idx, mg) if len(idx) else pd.DataFrame(index=pool.index)
     daily = signals.classify(pool, env)
-    calib = signals.calibration(fl, daily, C.CORE_ETFS)
+    cap = signals.holding_cap(fl, disc)
 
     os.makedirs(csv_dir, exist_ok=True)
     daily.to_csv(os.path.join(csv_dir, "signals.csv"), encoding="utf-8-sig")
     fl["flow_yi"].to_csv(os.path.join(csv_dir, "etf_flows_yi.csv"), encoding="utf-8-sig")
-    if len(calib):
-        calib.to_csv(os.path.join(csv_dir, "calibration.csv"), encoding="utf-8-sig", index=False)
+    if len(cap):
+        cap.to_csv(os.path.join(csv_dir, "holding_cap.csv"), encoding="utf-8-sig", index=False)
 
     ok = daily.dropna(subset=["pool_flow_yi"])
     last = ok[ok["n_etf"] >= 0.5 * ok["n_etf"].max()].index[-1]
-    path = report.build(daily, fl, calib, ev, hd, status, os.path.join(out_dir, f"{last}.html"), title_suffix=suffix)
-    report.build(daily, fl, calib, ev, hd, status, os.path.join(out_dir, "latest.html"), title_suffix=suffix)
+    path = report.build(daily, fl, cap, ev, hd, status, os.path.join(out_dir, f"{last}.html"), title_suffix=suffix)
+    report.build(daily, fl, cap, ev, hd, status, os.path.join(out_dir, "latest.html"), title_suffix=suffix)
     r = daily.loc[last]
     print(f"\n== {last}  {r['label']}  核心池净申赎 {r['pool_flow_yi']:+.1f} 亿元  环境：{r.get('regime', '—')}")
     if r.get("note"):
@@ -258,6 +264,8 @@ def main():
             st.run(con, run_at, "融资余额", step_margin, con)
             print("7/7 公告与快讯")
             st.run(con, run_at, "公告与快讯", step_events, con, days[-a.event_days:])
+            print("ETF定期报告（20%披露）")
+            st.run(con, run_at, "ETF定期报告", step_disclosures, con)
         periods = [a.quarterly] if a.quarterly else ([] if a.report_only else recent_quarter_ends())
         for q in periods:
             have = db.read(con, "SELECT COUNT(*) n FROM holders WHERE report_date=?", (q,))["n"][0]

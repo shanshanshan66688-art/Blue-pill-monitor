@@ -15,7 +15,7 @@ from . import db
 
 def populate(con, n=260, seed=7):
     rng = np.random.default_rng(seed)
-    for t in ["etf_shares", "etf_price", "index_daily", "margin", "events", "holders"]:
+    for t in ["etf_shares", "etf_price", "index_daily", "margin", "events", "holders", "disclosures"]:
         con.execute(f"DELETE FROM {t}")
 
     dates = pd.bdate_range(end=pd.Timestamp("2026-10-23"), periods=n).strftime("%Y-%m-%d").tolist()
@@ -77,3 +77,15 @@ def populate(con, n=260, seed=7):
     hd = [("2026-06-30", "SH601398", "中央汇金投资有限责任公司", "其它", 1.24e11, 34.79, "不变"),
           ("2026-06-30", "SH601398", "中国证券金融股份有限公司", "其它", 8.6e9, 2.41, "不变")]
     db.upsert(con, "holders", pd.DataFrame(hd, columns=["report_date", "stock", "holder", "holder_type", "shares", "ratio", "change"]))
+
+    q = dates[-40]
+    qs = pd.read_sql_query("SELECT code, shares FROM etf_shares WHERE date=?", con, params=(q,)).set_index("code")["shares"]
+    disc = []
+    for k, code in enumerate(qs.index):
+        if k % 3 == 0:
+            disc.append((code, f"DEMO{k}", "示例ETF 第3季度报告（模拟）", q, q, qs[code], 1, "[]", "{}"))
+        elif k % 3 == 1:
+            disc.append((code, f"DEMO{k}", "示例ETF 第3季度报告（模拟）", q, q, qs[code], 0,
+                         '[{"shares": %f, "pct": 30.0}]' % (qs[code] * 0.3), "{}"))
+    db.upsert(con, "disclosures", pd.DataFrame(disc, columns=["code", "report_id", "title", "pub_date", "period_end",
+                                                             "end_shares", "none_ge20", "ge20_json", "huijin_json"]))

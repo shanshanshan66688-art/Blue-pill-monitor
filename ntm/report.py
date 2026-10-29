@@ -30,7 +30,7 @@ def _esc(s):
 LEVEL_CLASS = {3: "lv3", 2: "lv2", 1: "lv1", 0: "lv0"}
 
 
-def build(daily, fl, calib, events, holders, status, out_path, lookback=250, title_suffix=""):
+def build(daily, fl, cap, events, holders, status, out_path, lookback=250, title_suffix=""):
     d = daily.dropna(subset=["pool_flow_yi"])
     # 只用数据覆盖过半的日期（例如上交所当天份额尚未发布时，那天先不作判断，下次运行补上）
     d = d[d["n_etf"] >= 0.5 * d["n_etf"].max()].tail(lookback)
@@ -55,42 +55,43 @@ def build(daily, fl, calib, events, holders, status, out_path, lookback=250, tit
     z_t = fl["z"].loc[last_date] if last_date in fl["z"].index else pd.Series(dtype=float)
     ds_t = fl["dshares"].loc[last_date] if last_date in fl["dshares"].index else pd.Series(dtype=float)
     name_map = {c[0]: c[1] for c in C.CORE_ETFS}
-    cal = calib.set_index("code") if len(calib) else pd.DataFrame()
+    cp = cap.set_index("code") if len(cap) else pd.DataFrame()
     etf_rows = []
     for code in fl["shares"].columns:
         z = z_t.get(code)
         flag = ""
         if pd.notna(z) and abs(z) >= C.Z_SINGLE:
             flag = "▲ 异常申购" if z > 0 else "▼ 异常赎回"
-        c = cal.loc[code] if code in cal.index else {}
-        raw_inv = c.get("inverted") if len(cal) and code in cal.index else None
-        inv = bool(raw_inv) if raw_inv is not None and pd.notna(raw_inv) else None
+        c = cp.loc[code] if code in cp.index else pd.Series(dtype=object)
         etf_rows.append(f"""
         <tr>
           <td><span class="code">{code}</span> {_esc(name_map.get(code, ''))}</td>
-          <td class="n">{_fmt(c.get('total_shares_yi') if len(cal) and code in cal.index else None)}</td>
+          <td class="n">{_fmt(c.get('total_now_yi'))}</td>
           <td class="n">{_fmt(ds_t.get(code) / 1e8 if pd.notna(ds_t.get(code)) else None, 2, True)}</td>
           <td class="n">{_fmt(flow_t.get(code), 1, True)}</td>
           <td class="n">{_fmt(z, 1, True)}</td>
           <td>{flag}</td>
-          <td class="n">{_fmt(c.get('baseline_yi') if len(cal) and code in cal.index else None)}</td>
-          <td>{'<b>倒挂</b> 至少减持 ' + _fmt(c.get('min_reduction_yi')) + ' 亿份' if inv else ('未倒挂' if inv is False else '—')}</td>
-          <td class="n">{_fmt(c.get('est_hold_yi') if len(cal) and code in cal.index else None)}</td>
+          <td>{_esc(c.get('period_end', ''))} {_esc(c.get('basis', '—'))}</td>
+          <td class="n">{_fmt(c.get('cap_q_yi'))}</td>
+          <td class="n">{_fmt(c.get('cap_now_yi'))}</td>
+          <td class="n">{_fmt(c.get('cap_now_value_yi'), 0)}</td>
         </tr>""")
 
-    # ---------- 校准汇总
-    if len(calib) and "ceiling_value_yi" in calib:
-        base_part = calib.dropna(subset=["baseline_yi"])
-        ceil_val = base_part["ceiling_value_yi"].sum()
-        est_val = base_part["est_hold_value_yi"].sum()
-        min_red = (base_part["min_reduction_yi"] * base_part["close"]).sum()
-        n_inv = int(base_part["inverted"].sum())
-        calib_txt = (f"有披露基数的 {len(base_part)} 只ETF中，{n_inv} 只已倒挂。"
-                     f"按当前价格，倒挂部分对应的<b>确定减持下限约 {_fmt(min_red, 0)} 亿元</b>；"
-                     f"国家队在这些ETF上的<b>持仓上限约 {_fmt(ceil_val, 0)} 亿元</b>，"
-                     f"叠加信号日推算的<b>估算持仓约 {_fmt(est_val, 0)} 亿元</b>。")
+    # ---------- 存量上限汇总
+    if len(cap):
+        known = cap[~cap["basis"].isin(["无报告", "未识别"])]
+        cap_total = cap["cap_now_value_yi"].sum()
+        pool_total = (cap["total_now_yi"] * cap["close"]).sum()
+        periods = sorted(set(known["period_end"])) if len(known) else []
+        cap_txt = (f"按定期报告的20%披露规则，国家队（中央汇金投资+汇金资管）在这 {len(cap)} 只核心ETF上的持仓"
+                   f"<b>最多约 {_fmt(cap_total, 0)} 亿元</b>，占这些ETF当前总规模（{_fmt(pool_total, 0)} 亿元）的 "
+                   f"{_fmt(cap_total / pool_total * 100 if pool_total else None, 0)}%。"
+                   f"其中 {len(known)} 只有可用的报告披露（报告期：{'、'.join(periods) or '—'}），"
+                   f"其余 {len(cap) - len(known)} 只暂无可用披露，按总份额计入。")
+        hero_cap = _fmt(cap_total, 0)
+        hero_cap_sub = f"报告期 {periods[-1] if periods else '—'} 起算 · 核心池总规模 {_fmt(pool_total, 0)} 亿元"
     else:
-        calib_txt = "尚未配置披露基数。"
+        cap_txt, hero_cap, hero_cap_sub = "尚无定期报告披露数据。", "—", ""
 
     # ---------- 近期信号日
     sig = d[d["level"] >= 2].tail(15).iloc[::-1]
@@ -133,7 +134,7 @@ def build(daily, fl, calib, events, holders, status, out_path, lookback=250, tit
         margin=_fmt(r.get("margin_yi"), 0), mp=_fmt(r.get("margin_pctl"), 0),
         bms=_fmt(r.get("big_minus_small"), 2, True),
         pool_shares=_fmt(r["pool_shares_yi"], 0), pool_value=_fmt(r["pool_value_yi"], 0),
-        calib_txt=calib_txt, etf_rows="".join(etf_rows), sig_rows=sig_rows,
+        cap_txt=cap_txt, hero_cap=hero_cap, hero_cap_sub=_esc(hero_cap_sub), etf_rows="".join(etf_rows), sig_rows=sig_rows,
         ev_rows=ev_rows, hd_rows=hd_rows, st_rows=st_rows,
         data=json.dumps(series, ensure_ascii=False),
         z=C.Z_SINGLE, strong=C.STRONG_POOL_FLOW_YI, medium=C.MEDIUM_POOL_FLOW_YI, nsync=C.MIN_SYNC_ETFS,
@@ -189,7 +190,7 @@ th{{color:var(--t2);font-weight:500;white-space:nowrap}} td.n{{text-align:right;
   <div class="card verdict"><div class="k">今日判定</div><div class="v {lvclass}">{verdict}</div><div class="s">{note}</div></div>
   <div class="card"><div class="k">核心池净申赎</div><div class="v">{flow} 亿</div><div class="s">{sync}</div></div>
   <div class="card"><div class="k">市场环境</div><div class="v">{regime}</div><div class="s">沪深300 {bench}（{bench_pct}%）· 60日回撤 {dd}% · 5日 {r5}%</div></div>
-  <div class="card"><div class="k">核心池总规模</div><div class="v">{pool_value} 亿元</div><div class="s">{pool_shares} 亿份 · 大盘−小盘 {bms} 个百分点</div></div>
+  <div class="card"><div class="k">国家队ETF存量上限</div><div class="v">≤ {hero_cap} 亿元</div><div class="s">{hero_cap_sub}</div></div>
 </div>
 
 <h2>核心池每日净申赎（亿元）</h2>
@@ -205,12 +206,12 @@ th{{color:var(--t2);font-weight:500;white-space:nowrap}} td.n{{text-align:right;
 
 <h2>今日各ETF明细</h2>
 <div class="card tw"><table>
-<tr><th>ETF</th><th>总份额(亿份)</th><th>份额变化(亿份)</th><th>申赎(亿元)</th><th>Z分数</th><th>异动</th><th>国家队披露基数(亿份)</th><th>倒挂校准</th><th>估算国家队持有(亿份)</th></tr>
+<tr><th>ETF</th><th>总份额(亿份)</th><th>份额变化(亿份)</th><th>申赎(亿元)</th><th>Z分数</th><th>异动</th><th>最新披露</th><th>季末上限(亿份)</th><th>当前上限(亿份)</th><th>上限市值(亿元)</th></tr>
 {etf_rows}
 </table></div>
 
-<h2>季报校准</h2>
-<div class="card">{calib_txt}<div class="s">“倒挂”= ETF当前总份额已低于国家队上期披露持有量，差额是确定的最少减持量。估算持有 = 披露基数 + 之后各信号日的份额变化，并限制在总份额以内。</div></div>
+<h2>存量上限</h2>
+<div class="card">{cap_txt}<div class="s">原理：基金定期报告必须披露持有份额≥20%的单一投资者。汇金投资和汇金资管是两个独立投资者，若报告写“无人超过20%”，两家合计一定低于40%；若有人超过20%，取披露的份额；中报、年报点名中央汇金时用准确值。报告期之后：上限 = 季末上限 + 之后份额净增加，不超过当前总份额（假设其他持有人同期没有大额赎回）。证金、国新、诚通在这些ETF中份额历来很小，未计入。</div></div>
 
 <h2>近期信号日</h2>
 <div class="card tw"><table><tr><th>日期</th><th>判定</th><th>净申赎(亿元)</th><th>环境</th><th>说明</th></tr>{sig_rows}</table></div>

@@ -202,3 +202,59 @@ def calibration(fl, daily, etf_meta):
     out = pd.DataFrame(rows)
     out.attrs["as_of"] = last
     return out
+
+
+# ============================================================ 5. 存量上限（定期报告 20% 规则）
+def holding_cap(fl, disc):
+    """
+    国家队（中央汇金投资 + 中央汇金资管 两个主体）在每只核心ETF上的持仓上限。
+
+    季末上限：
+      - 中报/年报点名了中央汇金 → 用点名的准确份额
+      - 否则：两个主体各自要么出现在"≥20%持有人"表里，要么一定低于20%，
+        所以上限 = {≥20%持有人的份额} ∪ {20%×期末份额, 20%×期末份额} 中最大的两个之和
+      - 没有报告或表格未识别 → 上限 = 期末总份额（等于没有信息）
+    季末之后：上限 = 季末上限 + max(0, 当前总份额 − 季末总份额)，并且不超过当前总份额
+      （假设其他持有人同期没有大额赎回；若有，真实值可能略高于此上限）
+    证金、国新、诚通、汇金旗下资管计划在这些宽基ETF中的份额历来很小，未计入。
+    """
+    import json
+    s, close = fl["shares"], fl["close"]
+    if s.empty:
+        return pd.DataFrame()
+    rows = []
+    disc = disc.sort_values(["period_end", "pub_date"]).groupby("code").tail(1).set_index("code") if len(disc) else pd.DataFrame()
+    for code in s.columns:
+        cur = s[code].dropna()
+        if cur.empty:
+            continue
+        total_now = cur.iloc[-1]
+        px = close[code].dropna().iloc[-1] if close[code].notna().any() else np.nan
+        row = {"code": code, "total_now_yi": total_now / 1e8, "close": px}
+        if code in disc.index:
+            d = disc.loc[code]
+            pe = d["period_end"]
+            total_q = d["end_shares"]
+            if not total_q or pd.isna(total_q):
+                hist = cur[cur.index <= pe]
+                total_q = hist.iloc[-1] if len(hist) else np.nan
+            hj = json.loads(d["huijin_json"] or "{}")
+            ge20 = [x["shares"] for x in json.loads(d["ge20_json"] or "[]")]
+            if hj:
+                cap_q, basis = sum(hj.values()), "报告点名汇金"
+            elif d["none_ge20"] == 1 or ge20:
+                cand = sorted(ge20 + [0.2 * total_q] * 2, reverse=True)[:2]
+                cap_q = min(sum(cand), total_q)
+                basis = "无人超20%" if not ge20 else f"{len(ge20)}个超20%持有人"
+            else:
+                cap_q, basis = total_q, "未识别"
+            cap_now = min(total_now, cap_q + max(0.0, total_now - total_q))
+            row.update({"report": d["title"], "period_end": pe, "basis": basis,
+                        "total_q_yi": total_q / 1e8, "cap_q_yi": cap_q / 1e8,
+                        "cap_now_yi": cap_now / 1e8})
+        else:
+            row.update({"report": "", "period_end": "", "basis": "无报告",
+                        "total_q_yi": np.nan, "cap_q_yi": np.nan, "cap_now_yi": total_now / 1e8})
+        row["cap_now_value_yi"] = row["cap_now_yi"] * px if pd.notna(px) else np.nan
+        rows.append(row)
+    return pd.DataFrame(rows)

@@ -66,7 +66,7 @@ jobs:
           cp reports/latest.html site/index.html
           mkdir -p site/archive && cp reports/20*.html site/archive/ 2>/dev/null || true
           cp data/signals.csv site/signals.csv 2>/dev/null || true
-          cp data/calibration.csv site/calibration.csv 2>/dev/null || true
+          cp data/holding_cap.csv site/holding_cap.csv 2>/dev/null || true
 
       - name: Save data
         run: |

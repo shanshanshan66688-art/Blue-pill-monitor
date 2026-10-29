@@ -31,6 +31,11 @@ CREATE TABLE IF NOT EXISTS holders (
     shares REAL, ratio REAL, change TEXT,
     PRIMARY KEY (report_date, stock, holder)
 );
+CREATE TABLE IF NOT EXISTS disclosures (
+    code TEXT, report_id TEXT, title TEXT, pub_date TEXT, period_end TEXT,
+    end_shares REAL, none_ge20 INTEGER, ge20_json TEXT, huijin_json TEXT,
+    PRIMARY KEY (code, report_id)
+);
 CREATE TABLE IF NOT EXISTS run_log (
     run_at TEXT, step TEXT, status TEXT, message TEXT
 );
