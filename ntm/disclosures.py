@@ -35,13 +35,13 @@ def period_end_from_title(title):
     if not y:
         return None
     y = y.group(1)
-    if "第1季度" in title or "第一季度" in title:
-        return f"{y}-03-31"
-    if "第2季度" in title or "第二季度" in title or "中期" in title or "半年" in title:
+    q = re.search(r"([1-4一二三四])季度", title)
+    if q:
+        n = "1一2二3三4四".index(q.group(1)) // 2 + 1
+        return f"{y}-" + {1: "03-31", 2: "06-30", 3: "09-30", 4: "12-31"}[n]
+    if "中期" in title or "半年" in title:
         return f"{y}-06-30"
-    if "第3季度" in title or "第三季度" in title:
-        return f"{y}-09-30"
-    if "第4季度" in title or "第四季度" in title or "年度报告" in title or "年报" in title:
+    if "年度报告" in title or "年报" in title:
         return f"{y}-12-31"
     return None
 
