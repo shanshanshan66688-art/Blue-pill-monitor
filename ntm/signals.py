@@ -211,6 +211,7 @@ def holding_cap(fl, disc):
 
     季末上限：
       - 中报/年报点名了中央汇金 → 用点名的准确份额
+      - 联接基金等其他产品超过20%的份额，国家队不可能持有，从总份额中扣除
       - 否则：两个主体各自要么出现在"≥20%持有人"表里，要么一定低于20%，
         所以上限 = {≥20%持有人的份额} ∪ {20%×期末份额, 20%×期末份额} 中最大的两个之和
       - 没有报告或表格未识别 → 上限 = 期末总份额（等于没有信息）
@@ -239,13 +240,15 @@ def holding_cap(fl, disc):
                 hist = cur[cur.index <= pe]
                 total_q = hist.iloc[-1] if len(hist) else np.nan
             hj = json.loads(d["huijin_json"] or "{}")
-            ge20 = [x["shares"] for x in json.loads(d["ge20_json"] or "[]")]
+            rows_ = json.loads(d["ge20_json"] or "[]")
+            ge20 = [x["shares"] for x in rows_ if x.get("candidate", True)]
+            others = sum(x["shares"] for x in rows_ if not x.get("candidate", True))
             if hj:
                 cap_q, basis = sum(hj.values()), "报告点名汇金"
             elif d["none_ge20"] == 1 or ge20:
                 cand = sorted(ge20 + [0.2 * total_q] * 2, reverse=True)[:2]
-                cap_q = min(sum(cand), total_q)
-                basis = "无人超20%" if not ge20 else f"{len(ge20)}个超20%持有人"
+                cap_q = min(sum(cand), total_q - others)
+                basis = ("无机构超20%" if not ge20 else f"{len(ge20)}个机构超20%") + ("（另有联接基金超20%）" if others else "")
             else:
                 cap_q, basis = total_q, "未识别"
             cap_now = min(total_now, cap_q + max(0.0, total_now - total_q))
