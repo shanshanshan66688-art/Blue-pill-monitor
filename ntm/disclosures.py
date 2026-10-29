@@ -11,6 +11,7 @@ PDF：pdf.dfcfw.com/pdf/H2_{报告ID}_1.pdf
 """
 import io
 import json
+import os
 import re
 import socket
 
@@ -19,8 +20,9 @@ import requests
 
 socket.setdefaulttimeout(60)
 
-REPORT_RE = re.compile(r"(季度报告|中期报告|年度报告|年报)")
-EXCLUDE_RE = re.compile(r"(摘要|英文|提示|更正|补充|延期)")
+REPORT_RE = r"(?:季度报告|中期报告|年度报告|年报)"
+EXCLUDE_RE = r"(?:摘要|英文|提示|更正|补充|延期)"
+TEXT_DIR = "data/report_text"   # 报告全文缓存（便于离线调试解析规则）
 NUM = r"-?[\d,]+\.\d+"
 
 
@@ -56,58 +58,105 @@ def latest_report(code):
     # 同一报告期有季报又有年报/中报时，优先年报/中报（会点名前十名持有人）
     df["rank"] = df["公告标题"].str.contains("年度|中期|年报").astype(int)
     df = df.sort_values(["period_end", "rank", "公告日期"], ascending=False)
+    if df.empty:
+        return None
     r = df.iloc[0]
     return {"report_id": str(r["报告ID"]), "title": str(r["公告标题"]),
             "pub_date": str(r["公告日期"]), "period_end": r["period_end"]}
 
 
 def download_text(report_id):
+    path = os.path.join(TEXT_DIR, f"{report_id}.txt")
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            return f.read()
     from pypdf import PdfReader
     url = f"https://pdf.dfcfw.com/pdf/H2_{report_id}_1.pdf"
     r = requests.get(url, timeout=60, headers={"User-Agent": "Mozilla/5.0"})
     r.raise_for_status()
     reader = PdfReader(io.BytesIO(r.content))
-    return "\n".join((p.extract_text() or "") for p in reader.pages)
+    text = "\n".join((p.extract_text() or "") for p in reader.pages)
+    os.makedirs(TEXT_DIR, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+    return text
+
+
+NONE_RE = re.compile(r"(未有|无需要披露的|未出现|不存在|没有|无)单一投资者持有基金份额比例达到或超过20%")
+HEADER = "期初份额申购份额赎回份额持有份额份额占比"
+MONEY = r"\d{1,3}(?:,\d{3})*\.\d{2}"
+
+
+def _row_holding(left):
+    """
+    left = 表格中某一行到"%"之前的文字（已去掉所有空白）。PDF里数字常被换行拆开，
+    去掉空白后四个金额首尾相连，例如 ...30日4,219,993,487.002,524,838,900.00...5,412,478,487.0044.98
+    金额一律两位小数，所以从右往左按小数点切：最后一个小数点属于占比，倒数第二个属于"持有份额"。
+    """
+    last = left.rfind(".")
+    i2 = left.rfind(".", 0, last)            # 持有份额的小数点
+    if i2 < 0:
+        return None, None
+    money_end = i2 + 3
+    pct = left[money_end:]
+    i3 = left.rfind(".", 0, i2)              # 赎回份额的小数点
+    start = i3 + 3 if i3 >= 0 else 0
+    hold = left[start:money_end]
+    if not re.fullmatch(MONEY, hold):
+        m = re.search(MONEY + "$", hold)
+        hold = m.group(0) if m else None
+    try:
+        return (_num(hold) if hold else None), float(pct)
+    except ValueError:
+        return (_num(hold) if hold else None), None
 
 
 def parse_report(text):
-    """返回 end_shares, none_ge20, ge20(list of {shares,pct}), huijin({名称:份额}), section(调试用片段)"""
-    flat = re.sub(r"[ \t　]+", " ", text)
+    """返回 end_shares, none_ge20, ge20(list of {shares,pct,holder}), huijin({名称:份额}), section(调试用片段)"""
+    compact = re.sub(r"\s+", "", text)
     out = {"end_shares": None, "none_ge20": None, "ge20": [], "huijin": {}, "section": ""}
 
-    m = re.search(r"期末基金份额总额\s*(" + NUM + ")", flat)
+    m = re.search(r"期末基金份额总额(?:（份）|\(份\))?(" + MONEY + ")", compact)
     if m:
         out["end_shares"] = _num(m.group(1))
 
-    i = flat.find("达到或超过20%")
-    if i < 0:
-        i = flat.find("达到或超过 20%")
-    if i >= 0:
-        sec = flat[i:i + 2500]
-        # 截到下一节标题为止
-        stop = re.search(r"(产品特有风险|影响投资者决策的其他重要信息|§\s*9|§\s*10|备查文件)", sec[30:])
-        if stop:
-            sec = sec[:30 + stop.start()]
-        out["section"] = sec[:1200]
-        head = sec[:200]
-        if re.search(r"(未有|没有|不存在|无单一投资者)", head):
-            out["none_ge20"] = True
-        else:
-            rows = re.split(r"(?=机构\s*\d+\s)", sec)
-            for row in rows[1:]:
-                row = re.split(r"(个人|产品特有风险)", row)[0]
-                pcts = re.findall(r"([\d.]+)\s*%", row)
-                body = re.sub(r"[\d.]+\s*%", " ", row)
-                nums = [x for x in re.findall(NUM, body)]
-                if nums and pcts:
-                    out["ge20"].append({"shares": _num(nums[-1]), "pct": float(pcts[-1])})
-            out["none_ge20"] = False if out["ge20"] else None   # 没解析出行 = 未识别
+    none_flag = bool(NONE_RE.search(compact))
 
-    # 中报/年报点名的中央汇金（前十名持有人表：名称 后面跟 持有份额 和 占比）
+    rows = []
+    for hm in re.finditer(HEADER, compact):
+        sec = compact[hm.end():hm.end() + 1500]
+        stop = re.search(r"(产品特有风险|8\.2|§9|备查文件|影响投资者决策的其他重要信息)", sec)
+        if stop:
+            sec = sec[:stop.start()]
+        out["section"] = sec[:600]
+        prev = 0
+        for pm in re.finditer("%", sec):
+            left = sec[prev:pm.start()]
+            hold, pct = _row_holding(left)
+            first_money = re.search(MONEY, left)
+            who = left[:first_money.start()] if first_money else left
+            prev = pm.end()
+            if hold is None:
+                continue
+            feeder = ("联接" in who) or ("个人" in who)
+            rows.append({"shares": hold, "pct": pct, "holder": who[:40], "feeder": feeder})
+        if rows:
+            break
+    if not rows and not none_flag:
+        i = compact.find("达到或超过20%")
+        out["section"] = compact[max(0, i - 200):i + 400] if i >= 0 else compact[:300]
+
+    out["ge20"] = [r for r in rows if not r["feeder"]]
+    out["ge20_feeder"] = [r for r in rows if r["feeder"]]
+    if rows:
+        out["none_ge20"] = False
+    elif none_flag:
+        out["none_ge20"] = True
+
     for name in ("中央汇金资产管理有限责任公司", "中央汇金投资有限责任公司"):
-        for m in re.finditer(name + r"\s*(" + r"[\d,]+(?:\.\d+)?" + r")\s*([\d.]+)", flat):
+        for m in re.finditer(name + r"(\d{1,3}(?:,\d{3})+(?:\.\d{2})?)", compact):
             v = _num(m.group(1)) if "." in m.group(1) else float(m.group(1).replace(",", ""))
-            if v > 1e6:  # 过滤掉页码之类的小数字
+            if v > 1e6:
                 out["huijin"][name] = max(out["huijin"].get(name, 0), v)
     return out
 
@@ -125,9 +174,12 @@ def update(con, codes, log=print):
                 continue
             if (code, meta["report_id"]) in have:
                 skip += 1
-                continue
             text = download_text(meta["report_id"])
             p = parse_report(text)
+            # 联接基金持有的份额不是国家队，但只要有机构/联接基金超过20%，"无人超过20%"就不成立；
+            # 国家队候选只看非联接基金的那些行
+            if p["none_ge20"] is False and not p["ge20"]:
+                p["none_ge20"] = True   # 超过20%的只有联接基金 → 国家队两家各自一定低于20%
             con.execute(
                 "INSERT OR REPLACE INTO disclosures VALUES (?,?,?,?,?,?,?,?,?)",
                 (code, meta["report_id"], meta["title"], meta["pub_date"], meta["period_end"],
@@ -135,9 +187,10 @@ def update(con, codes, log=print):
                  json.dumps(p["ge20"], ensure_ascii=False), json.dumps(p["huijin"], ensure_ascii=False)))
             new.append(code)
             log(f"    {code} {meta['title']}：期末份额 {p['end_shares']}，"
-                f"无≥20%={p['none_ge20']}，≥20%持有人={p['ge20']}，汇金点名={p['huijin']}")
+                f"国家队候选无人≥20%={p['none_ge20']}，≥20%机构={[(round(r['shares']/1e8,2), r['pct']) for r in p['ge20']]}，"
+                f"≥20%联接基金={[(round(r['shares']/1e8,2), r['pct']) for r in p.get('ge20_feeder', [])]}，汇金点名={p['huijin']}")
             if p["none_ge20"] is None:
                 log(f"      [未识别20%表] 片段：{p['section'][:300]!r}")
         except Exception as e:
-            fail.append(f"{code}:{type(e).__name__}")
-    return f"新解析 {len(new)} 份，已有 {skip} 份" + (f"，失败 {'、'.join(fail)}" if fail else "")
+            fail.append(f"{code}:{type(e).__name__}:{str(e)[:60]}")
+    return f"解析 {len(new)} 份（其中 {skip} 份为已缓存报告）" + (f"，失败 {'、'.join(fail)}" if fail else "")
