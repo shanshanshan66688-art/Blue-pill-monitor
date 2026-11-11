@@ -1,10 +1,10 @@
 akshare 1.20.37
-[OK]   指数日线(东财): 22 行, 0.9s, 列 ['date', 'open', 'close', 'high', 'low', 'volume']
-[OK]   中证指数日线: 23 行, 1.0s, 列 ['日期', '指数代码', '指数中文全称', '指数中文简称', '指数英文全称', '指数英文简称']
-[OK]   新浪指数日线: 3992 行, 2.3s, 列 ['date', 'open', 'high', 'low', 'close', 'volume']
-[OK]   新浪ETF日线: 3512 行, 0.4s, 列 ['date', 'open', 'high', 'low', 'close', 'volume']
-[OK]   新浪ETF日线(深): 3510 行, 0.5s, 列 ['date', 'open', 'high', 'low', 'close', 'volume']
-[FAIL] 上交所ETF份额: KeyError: "None of [Index(['序号', '基金代码', '基金简称', 'ETF类型', '统计日期', '基金份额'], dtype='object')] are in the [columns]" (2.3s)
+[OK]   指数日线(东财): 23 行, 3.5s, 列 ['date', 'open', 'close', 'high', 'low', 'volume']
+[OK]   中证指数日线: 22 行, 1.2s, 列 ['日期', '指数代码', '指数中文全称', '指数中文简称', '指数英文全称', '指数英文简称']
+[OK]   新浪指数日线: 3993 行, 2.8s, 列 ['date', 'open', 'high', 'low', 'close', 'volume']
+[OK]   新浪ETF日线: 3512 行, 0.1s, 列 ['date', 'open', 'high', 'low', 'close', 'volume']
+[OK]   新浪ETF日线(深): 3510 行, 0.3s, 列 ['date', 'open', 'high', 'low', 'close', 'volume']
+[FAIL] 上交所ETF份额: KeyError: "None of [Index(['序号', '基金代码', '基金简称', 'ETF类型', '统计日期', '基金份额'], dtype='object')] are in the [columns]" (1.6s)
 Traceback (most recent call last):
   File "/home/runner/work/Blue-pill-monitor/Blue-pill-monitor/diagnose.py", line 36, in <module>
     df = fn()
@@ -13,7 +13,7 @@ Traceback (most recent call last):
     ("上交所ETF份额", lambda: ak.fund_etf_scale_sse(date=d)),
                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 KeyError: "None of [Index(['序号', '基金代码', '基金简称', 'ETF类型', '统计日期', '基金份额'], dtype='object')] are in the [columns]"
-[FAIL] 深交所ETF份额: ConnectionError: ('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')) (3.1s)
+[FAIL] 深交所ETF份额: ConnectionError: ('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')) (2.0s)
 Traceback (most recent call last):
   File "/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/urllib3/connectionpool.py", line 793, in urlopen
     response = self._make_request(
@@ -43,47 +43,71 @@ Traceback (most recent call last):
     ("深交所ETF份额", lambda: ak.fund_etf_scale_szse()),
                               ^^^^^^^^^^^^^^^^^^^^^^^^
 requests.exceptions.ConnectionError: ('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))
-  0%|          | 0/16 [00:00<?, ?it/s]  6%|▋         | 1/16 [00:01<00:27,  1.80s/it] 12%|█▎        | 2/16 [00:03<00:27,  1.95s/it] 19%|█▉        | 3/16 [00:06<00:28,  2.19s/it] 25%|██▌       | 4/16 [00:08<00:26,  2.19s/it] 31%|███▏      | 5/16 [00:10<00:25,  2.29s/it] 38%|███▊      | 6/16 [00:12<00:21,  2.15s/it] 44%|████▍     | 7/16 [00:15<00:20,  2.26s/it] 50%|█████     | 8/16 [00:17<00:16,  2.09s/it] 56%|█████▋    | 9/16 [00:19<00:15,  2.25s/it] 62%|██████▎   | 10/16 [00:21<00:12,  2.15s/it] 69%|██████▉   | 11/16 [00:24<00:11,  2.27s/it] 75%|███████▌  | 12/16 [00:26<00:09,  2.26s/it] 81%|████████▏ | 13/16 [00:28<00:06,  2.19s/it] 88%|████████▊ | 14/16 [00:30<00:04,  2.20s/it] 94%|█████████▍| 15/16 [00:32<00:02,  2.14s/it]100%|██████████| 16/16 [00:34<00:00,  2.19s/it]                                               [OK]   东财ETF实时: 1666 行, 36.2s, 列 ['代码', '名称', '最新价', 'IOPV实时估值', '基金折价率', '涨跌额']
-[OK]   东财ETF日线: 22 行, 0.6s, 列 ['日期', '开盘', '收盘', '最高', '最低', '成交量']
-  0%|          | 0/7 [00:00<?, ?it/s] 14%|█▍        | 1/7 [00:02<00:12,  2.01s/it] 29%|██▊       | 2/7 [00:08<00:22,  4.52s/it] 43%|████▎     | 3/7 [00:10<00:13,  3.42s/it] 57%|█████▋    | 4/7 [00:12<00:09,  3.06s/it] 71%|███████▏  | 5/7 [00:14<00:04,  2.39s/it] 86%|████████▌ | 6/7 [00:18<00:03,  3.21s/it]100%|██████████| 7/7 [00:20<00:00,  2.69s/it]                                             [OK]   东财两融: 3424 行, 24.2s, 列 ['日期', '融资余额', '融券余额', '融资买入额', '融券卖出额', '证券公司数量']
-  0%|          | 0/11 [00:00<?, ?it/s]  9%|▉         | 1/11 [00:02<00:25,  2.56s/it] 18%|█▊        | 2/11 [00:08<00:42,  4.71s/it] 27%|██▋       | 3/11 [00:17<00:52,  6.57s/it] 36%|███▋      | 4/11 [00:19<00:31,  4.55s/it] 45%|████▌     | 5/11 [00:21<00:23,  3.90s/it]                                              [FAIL] 东财公告: ChunkedEncodingError: ('Connection broken: IncompleteRead(65273 bytes read, 5326 more expected)', IncompleteRead(65273 bytes read, 5326 more expected)) (78.3s)
+[FAIL] 东财ETF实时: HTTPError: 502 Server Error: Bad Gateway for url: https://push2delay.eastmoney.com/api/qt/clist/get?pn=1&pz=100&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=%7C0%7C0%7C0%7Cweb&fid=f12&fs=b%3 (7.7s)
 Traceback (most recent call last):
-  File "/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/urllib3/response.py", line 929, in _error_catcher
-    yield
-  File "/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/urllib3/response.py", line 1067, in _raw_read
-    raise IncompleteRead(self._fp_bytes_read, self.length_remaining)
-urllib3.exceptions.IncompleteRead: IncompleteRead(65273 bytes read, 5326 more expected)
-
-The above exception was the direct cause of the following exception:
-
+  File "/home/runner/work/Blue-pill-monitor/Blue-pill-monitor/diagnose.py", line 36, in <module>
+    df = fn()
+         ^^^^
+  File "/home/runner/work/Blue-pill-monitor/Blue-pill-monitor/diagnose.py", line 24, in <lambda>
+    ("东财ETF实时", lambda: ak.fund_etf_spot_em()),
+                            ^^^^^^^^^^^^^^^^^^^^^
+requests.exceptions.HTTPError: 502 Server Error: Bad Gateway for url: https://push2delay.eastmoney.com/api/qt/clist/get?pn=1&pz=100&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=%7C0%7C0%7C0%7Cweb&fid=f12&fs=b%3AMK0021%2Cb%3AMK0022%2Cb%3AMK0023%2Cb%3AMK0024%2Cb%3AMK0827&fields=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8%2Cf9%2Cf10%2Cf12%2Cf13%2Cf14%2Cf15%2Cf16%2Cf17%2Cf18%2Cf20%2Cf21%2Cf23%2Cf24%2Cf25%2Cf22%2Cf11%2Cf30%2Cf31%2Cf32%2Cf33%2Cf34%2Cf35%2Cf38%2Cf62%2Cf63%2Cf64%2Cf65%2Cf66%2Cf69%2Cf72%2Cf75%2Cf78%2Cf81%2Cf84%2Cf87%2Cf115%2Cf124%2Cf128%2Cf136%2Cf152%2Cf184%2Cf297%2Cf402%2Cf441
+[FAIL] 东财ETF日线: Push2RateLimitError: 东方财富 push2 行情服务器断开了连接，通常是短时间内请求过多，当前 IP 被临时限流。首次限流一般约 5 分钟后恢复，反复触发后可能需要 40 分钟以上；等待期间不要重复调用东方财富的行情接口，否则会延长限流。 (3.6s)
 Traceback (most recent call last):
-  File "/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/requests/models.py", line 937, in generate
-    yield from self.raw.stream(chunk_size, decode_content=True)
-  File "/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/urllib3/response.py", line 1291, in stream
-    data = self.read(amt=amt, decode_content=decode_content)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-urllib3.exceptions.ProtocolError: ('Connection broken: IncompleteRead(65273 bytes read, 5326 more expected)', IncompleteRead(65273 bytes read, 5326 more expected))
+  File "/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/urllib3/connectionpool.py", line 793, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/urllib3/connectionpool.py", line 540, in _make_request
+    response = conn.getresponse()
+               ^^^^^^^^^^^^^^^^^^
+http.client.RemoteDisconnected: Remote end closed connection without response
 
 During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/requests/adapters.py", line 696, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/urllib3/connectionpool.py", line 847, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.ProtocolError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/akshare/utils/http.py", line 120, in request
+    response = requests.request(method, url, **_apply_defaults(kwargs))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/requests/api.py", line 71, in request
+    return session.request(method=method, url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+requests.exceptions.ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+
+The above exception was the direct cause of the following exception:
 
 Traceback (most recent call last):
   File "/home/runner/work/Blue-pill-monitor/Blue-pill-monitor/diagnose.py", line 36, in <module>
     df = fn()
          ^^^^
-  File "/home/runner/work/Blue-pill-monitor/Blue-pill-monitor/diagnose.py", line 27, in <lambda>
-    ("东财公告", lambda: ak.stock_notice_report(symbol="全部", date=d)),
-                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-requests.exceptions.ChunkedEncodingError: ('Connection broken: IncompleteRead(65273 bytes read, 5326 more expected)', IncompleteRead(65273 bytes read, 5326 more expected))
-[OK]   财联社快讯: 20 行, 1.0s, 列 ['标题', '内容', '发布日期', '发布时间']
-[OK]   东财十大流通股东: 10 行, 2.0s, 列 ['名次', '股东名称', '股东性质', '股份类型', '持股数', '占总流通股本持股比例']
+  File "/home/runner/work/Blue-pill-monitor/Blue-pill-monitor/diagnose.py", line 25, in <lambda>
+    ("东财ETF日线", lambda: ak.fund_etf_hist_em(symbol="510300", period="daily", start_date=start, end_date=end, adjust="")),
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+akshare.utils.http.Push2RateLimitError: 东方财富 push2 行情服务器断开了连接，通常是短时间内请求过多，当前 IP 被临时限流。首次限流一般约 5 分钟后恢复，反复触发后可能需要 40 分钟以上；等待期间不要重复调用东方财富的行情接口，否则会延长限流。
+  0%|          | 0/7 [00:00<?, ?it/s] 14%|█▍        | 1/7 [00:01<00:09,  1.66s/it] 29%|██▊       | 2/7 [00:02<00:07,  1.47s/it] 43%|████▎     | 3/7 [00:10<00:17,  4.45s/it] 57%|█████▋    | 4/7 [00:12<00:09,  3.22s/it] 71%|███████▏  | 5/7 [00:13<00:04,  2.47s/it] 86%|████████▌ | 6/7 [00:14<00:02,  2.10s/it]100%|██████████| 7/7 [00:15<00:00,  1.74s/it]                                             [OK]   东财两融: 3425 行, 18.1s, 列 ['日期', '融资余额', '融券余额', '融资买入额', '融券卖出额', '证券公司数量']
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00,  2.68it/s]                                             [OK]   东财公告: 9 行, 1.0s, 列 ['代码', '名称', '公告标题', '公告类型', '公告日期', '网址']
+[OK]   财联社快讯: 20 行, 1.4s, 列 ['标题', '内容', '发布日期', '发布时间']
+[OK]   东财十大流通股东: 10 行, 1.0s, 列 ['名次', '股东名称', '股东性质', '股份类型', '持股数', '占总流通股本持股比例']
 1/7 指数行情（交易日历、成交额）
 2/7 上交所ETF份额（10 个交易日）
+  [失败] 上交所ETF份额: "None of [Index(['序号', '基金代码', '基金简称', 'ETF类型', '统计日期', '基金份额'], dtype='object')] are in the [columns]"
 3/7 深交所ETF份额（仅最新）
 4/7 东方财富份额（补缺）
+  [失败] 东财份额补缺: 502 Server Error: Bad Gateway for url: https://push2delay.eastmoney.com/api/qt/clist/get?pn=1&pz=100&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&wbp2u=%7C0%7C0%7C0%7Cweb&fid=f12&fs=b%3AMK0021%2Cb%3AMK0022%2Cb%3AMK0023%2Cb%3AMK0024%2Cb%3AMK0827&fields=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8%2Cf9%2Cf10%2Cf12%2Cf13%2Cf14%2Cf15%2Cf16%2Cf17%2Cf18%2Cf20%2Cf21%2Cf23%2Cf24%2Cf25%2Cf22%2Cf11%2Cf30%2Cf31%2Cf32%2Cf33%2Cf34%2Cf35%2Cf38%2Cf62%2Cf63%2Cf64%2Cf65%2Cf66%2Cf69%2Cf72%2Cf75%2Cf78%2Cf81%2Cf84%2Cf87%2Cf115%2Cf124%2Cf128%2Cf136%2Cf152%2Cf184%2Cf297%2Cf402%2Cf441
 5/7 ETF行情
 6/7 融资余额
-  0%|          | 0/7 [00:00<?, ?it/s] 14%|█▍        | 1/7 [00:05<00:33,  5.56s/it] 29%|██▊       | 2/7 [00:07<00:16,  3.30s/it] 43%|████▎     | 3/7 [00:08<00:09,  2.48s/it] 57%|█████▋    | 4/7 [00:32<00:32, 10.78s/it] 71%|███████▏  | 5/7 [00:33<00:14,  7.40s/it] 86%|████████▌ | 6/7 [00:35<00:05,  5.41s/it]100%|██████████| 7/7 [00:37<00:00,  4.27s/it]                                             7/7 公告与快讯
-  0%|          | 0/13 [00:00<?, ?it/s]  8%|▊         | 1/13 [00:01<00:20,  1.74s/it] 15%|█▌        | 2/13 [00:03<00:16,  1.46s/it] 23%|██▎       | 3/13 [00:04<00:17,  1.70s/it] 31%|███       | 4/13 [00:06<00:14,  1.58s/it] 38%|███▊      | 5/13 [00:18<00:42,  5.29s/it] 46%|████▌     | 6/13 [00:21<00:32,  4.63s/it] 54%|█████▍    | 7/13 [00:22<00:19,  3.33s/it] 62%|██████▏   | 8/13 [00:24<00:14,  2.86s/it] 69%|██████▉   | 9/13 [00:26<00:11,  2.85s/it] 77%|███████▋  | 10/13 [00:28<00:07,  2.47s/it] 85%|████████▍ | 11/13 [00:30<00:04,  2.20s/it] 92%|█████████▏| 12/13 [00:31<00:02,  2.06s/it]100%|██████████| 13/13 [00:32<00:00,  1.66s/it]                                                 0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:01<00:06,  1.51s/it] 40%|████      | 2/5 [00:05<00:08,  2.93s/it] 60%|██████    | 3/5 [00:07<00:05,  2.61s/it] 80%|████████  | 4/5 [00:10<00:02,  2.83s/it]100%|██████████| 5/5 [00:14<00:00,  3.02s/it]                                               0%|          | 0/14 [00:00<?, ?it/s]  7%|▋         | 1/14 [00:01<00:13,  1.03s/it] 14%|█▍        | 2/14 [00:27<03:08, 15.72s/it] 21%|██▏       | 3/14 [00:31<01:55, 10.47s/it] 29%|██▊       | 4/14 [00:32<01:08,  6.83s/it] 36%|███▌      | 5/14 [00:35<00:48,  5.35s/it] 43%|████▎     | 6/14 [00:36<00:32,  4.12s/it] 50%|█████     | 7/14 [00:38<00:22,  3.24s/it] 57%|█████▋    | 8/14 [00:39<00:15,  2.61s/it] 64%|██████▍   | 9/14 [00:42<00:13,  2.73s/it] 71%|███████▏  | 10/14 [00:44<00:10,  2.57s/it] 79%|███████▊  | 11/14 [00:45<00:06,  2.10s/it] 86%|████████▌ | 12/14 [00:53<00:07,  3.86s/it] 93%|█████████▎| 13/14 [00:58<00:04,  4.25s/it]100%|██████████| 14/14 [01:06<00:00,  5.14s/it]                                               ETF定期报告（20%披露）
+  0%|          | 0/7 [00:00<?, ?it/s] 14%|█▍        | 1/7 [00:01<00:07,  1.18s/it] 29%|██▊       | 2/7 [00:02<00:07,  1.46s/it] 43%|████▎     | 3/7 [00:04<00:06,  1.53s/it] 57%|█████▋    | 4/7 [00:05<00:04,  1.52s/it] 71%|███████▏  | 5/7 [00:07<00:02,  1.48s/it] 86%|████████▌ | 6/7 [00:09<00:01,  1.57s/it]100%|██████████| 7/7 [00:10<00:00,  1.46s/it]                                             7/7 公告与快讯
+  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:02,  1.38it/s] 40%|████      | 2/5 [00:01<00:03,  1.04s/it] 60%|██████    | 3/5 [00:03<00:02,  1.37s/it] 80%|████████  | 4/5 [00:04<00:01,  1.30s/it]100%|██████████| 5/5 [00:05<00:00,  1.20s/it]                                               0%|          | 0/15 [00:00<?, ?it/s]  7%|▋         | 1/15 [00:00<00:12,  1.13it/s] 13%|█▎        | 2/15 [00:02<00:18,  1.45s/it] 20%|██        | 3/15 [00:03<00:14,  1.23s/it] 27%|██▋       | 4/15 [00:05<00:14,  1.30s/it] 33%|███▎      | 5/15 [00:07<00:17,  1.77s/it] 40%|████      | 6/15 [00:09<00:17,  1.91s/it] 47%|████▋     | 7/15 [00:10<00:12,  1.61s/it] 53%|█████▎    | 8/15 [00:12<00:10,  1.49s/it] 60%|██████    | 9/15 [00:13<00:08,  1.47s/it] 67%|██████▋   | 10/15 [00:14<00:06,  1.29s/it] 73%|███████▎  | 11/15 [00:15<00:04,  1.12s/it] 80%|████████  | 12/15 [00:16<00:03,  1.04s/it] 87%|████████▋ | 13/15 [00:17<00:02,  1.22s/it] 93%|█████████▎| 14/15 [00:18<00:01,  1.26s/it]100%|██████████| 15/15 [00:19<00:00,  1.02it/s]                                                 0%|          | 0/13 [00:00<?, ?it/s]  8%|▊         | 1/13 [00:01<00:21,  1.77s/it] 15%|█▌        | 2/13 [00:03<00:16,  1.54s/it] 23%|██▎       | 3/13 [00:04<00:14,  1.48s/it] 31%|███       | 4/13 [00:06<00:13,  1.52s/it] 38%|███▊      | 5/13 [00:07<00:11,  1.39s/it] 46%|████▌     | 6/13 [00:08<00:09,  1.42s/it] 54%|█████▍    | 7/13 [00:09<00:07,  1.32s/it] 62%|██████▏   | 8/13 [00:24<00:28,  5.64s/it] 69%|██████▉   | 9/13 [00:26<00:17,  4.40s/it] 77%|███████▋  | 10/13 [00:27<00:10,  3.44s/it]                                                 0%|          | 0/13 [00:00<?, ?it/s]  8%|▊         | 1/13 [00:01<00:20,  1.72s/it] 15%|█▌        | 2/13 [00:02<00:13,  1.27s/it] 23%|██▎       | 3/13 [00:07<00:30,  3.04s/it] 31%|███       | 4/13 [00:09<00:22,  2.52s/it] 38%|███▊      | 5/13 [00:11<00:17,  2.16s/it] 46%|████▌     | 6/13 [00:12<00:13,  1.88s/it] 54%|█████▍    | 7/13 [00:13<00:09,  1.52s/it] 62%|██████▏   | 8/13 [00:15<00:08,  1.64s/it] 69%|██████▉   | 9/13 [00:15<00:05,  1.39s/it] 77%|███████▋  | 10/13 [00:17<00:04,  1.38s/it] 85%|████████▍ | 11/13 [00:18<00:02,  1.28s/it] 92%|█████████▏| 12/13 [00:19<00:01,  1.32s/it]100%|██████████| 13/13 [00:20<00:00,  1.02s/it]                                               ETF定期报告（20%披露）
     510300 华泰柏瑞沪深300交易型开放式指数证券投资基金2026年第3季度报告：期末份额 24119587690.0，国家队候选无人≥20%=True，≥20%机构=[]，≥20%其他产品=[]，汇金点名={}
     510310 易方达沪深300交易型开放式指数发起式证券投资基金2026年第3季度报告：期末份额 12031903922.0，国家队候选无人≥20%=True，≥20%机构=[]，≥20%其他产品=[(54.12, 44.98)]，汇金点名={}
     510330 华夏沪深300交易型开放式指数证券投资基金2026年第3季度报告：期末份额 8507049828.0，国家队候选无人≥20%=True，≥20%机构=[]，≥20%其他产品=[(28.07, 32.99)]，汇金点名={}
