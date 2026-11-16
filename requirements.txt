@@ -1,4 +1,4 @@
-akshare>=1.17
+akshare==1.20.42   # 固定版本：AKShare 新版大批函数改名，升级前先用 diagnose.py 测
 pandas>=2.0,<3
 openpyxl>=3.1
 pypdf>=4.0

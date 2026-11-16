@@ -66,9 +66,12 @@ def step_index(con, start, end):
 
 
 def trading_days(con, start, end):
-    t = db.read(con, "SELECT DISTINCT date FROM index_daily WHERE symbol=? AND date BETWEEN ? AND ? ORDER BY date",
-                (C.BENCHMARK_INDEX, start, end))
-    return list(t["date"])
+    """交易日历 = 所有指数、所有来源出现过的日期并集（任何一个来源停更都不会卡住日历）"""
+    t = db.read(con, "SELECT DISTINCT date FROM index_daily WHERE date BETWEEN ? AND ? "
+                     "UNION SELECT DISTINCT date FROM etf_price WHERE date BETWEEN ? AND ? ORDER BY date",
+                (start, end, start, end))
+    days = [d for d in t["date"] if pd.Timestamp(d).weekday() < 5]
+    return days
 
 
 def _check_names(df):
@@ -204,8 +207,11 @@ def analyze_and_report(con, status, out_dir=C.REPORT_DIR, suffix="", csv_dir="da
 
     ok = daily.dropna(subset=["pool_flow_yi"])
     last = ok[ok["n_etf"] >= 0.5 * ok["n_etf"].max()].index[-1]
-    path = report.build(daily, fl, cap, ev, hd, status, os.path.join(out_dir, f"{last}.html"), title_suffix=suffix)
-    report.build(daily, fl, cap, ev, hd, status, os.path.join(out_dir, "latest.html"), title_suffix=suffix)
+    lm = max([x for x in [prices["date"].max() if len(prices) else None, idx["date"].max() if len(idx) else None] if x])
+    path = report.build(daily, fl, cap, ev, hd, status, os.path.join(out_dir, f"{last}.html"), title_suffix=suffix, latest_market=lm)
+    report.build(daily, fl, cap, ev, hd, status, os.path.join(out_dir, "latest.html"), title_suffix=suffix, latest_market=lm)
+    if lm > last:
+        print(f"  [注意] 份额数据停在 {last}，行情已到 {lm}")
     r = daily.loc[last]
     print(f"\n== {last}  {r['label']}  核心池净申赎 {r['pool_flow_yi']:+.1f} 亿元  环境：{r.get('regime', '—')}")
     if r.get("note"):

@@ -17,6 +17,15 @@ except ImportError:  # 允许在没装 akshare 的环境里跑 --demo
     ak = None
 
 
+def _ak(*names):
+    """AKShare 经常给函数改名：按顺序返回第一个存在的函数。"""
+    for n in names:
+        f = getattr(ak, n, None)
+        if f is not None:
+            return f
+    raise AttributeError("AKShare 中找不到：" + " / ".join(names))
+
+
 def _retry(fn, *args, tries=3, wait=2, **kwargs):
     last = None
     for i in range(tries):
@@ -59,19 +68,19 @@ def _first(sources):
 
 # ---------------------------------------------------------------- 指数
 def _idx_em(symbol, start, end):
-    df = _retry(ak.stock_zh_index_daily_em, symbol=symbol,
+    df = _retry(_ak("stock_zh_index_daily_em", "index_zh_a_daily_em"), symbol=symbol,
                 start_date=start.replace("-", ""), end_date=end.replace("-", ""), tries=2)
     return pd.DataFrame({"date": df["date"], "close": df["close"], "amount": df["amount"]})
 
 
 def _idx_csindex(code, start, end):
-    df = _retry(ak.stock_zh_index_hist_csindex, symbol=code,
+    df = _retry(_ak("stock_zh_index_hist_csindex", "index_hist_csindex"), symbol=code,
                 start_date=start.replace("-", ""), end_date=end.replace("-", ""), tries=2)
     return pd.DataFrame({"date": df["日期"], "close": df["收盘"], "amount": df["成交金额"]})
 
 
 def _idx_sina(symbol, start, end):
-    df = _retry(ak.stock_zh_index_daily, symbol=symbol, tries=2)
+    df = _retry(_ak("stock_zh_index_daily", "index_zh_a_daily_sina"), symbol=symbol, tries=2)
     d = pd.to_datetime(df["date"])
     df = df[(d >= pd.Timestamp(start)) & (d <= pd.Timestamp(end))]
     return pd.DataFrame({"date": df["date"], "close": df["close"], "amount": float("nan")})
@@ -81,7 +90,8 @@ def index_daily(symbol, start, end):
     """
     指数日线。返回 date, symbol, close, amount(亿元)
     symbol 形如 sh000300 / sz399006；以 csi 开头（如 csi000985）表示只从中证指数官网取。
-    依次尝试：中证指数官网（有成交额）→ 东方财富 → 新浪（无成交额）
+    所有来源都尝试一遍再合并：同一天优先用中证指数官网（有成交额），其次东方财富，再次新浪。
+    这样某个来源停更时（例如中证官网 2026-11 滞后），较新的日期会由其他来源补上。
     """
     code = symbol[-6:]
     if symbol.startswith("csi"):
@@ -90,14 +100,33 @@ def index_daily(symbol, start, end):
         srcs = [("中证指数", lambda: _idx_csindex(code, start, end)),
                 ("东方财富", lambda: _idx_em(symbol, start, end)),
                 ("新浪", lambda: _idx_sina(symbol, start, end))]
-    df, src = _first(srcs)
-    out = pd.DataFrame({
-        "date": pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d"),
-        "symbol": symbol,
-        "close": pd.to_numeric(df["close"], errors="coerce").values,
-        "amount": _to_yi(df["amount"]).values,
-    })
-    out.attrs["source"] = src
+    parts, used, errors = [], [], []
+    for rank, (name, fn) in enumerate(srcs):
+        try:
+            df = fn()
+            if df is None or not len(df):
+                errors.append(f"{name}空")
+                continue
+            d = pd.DataFrame({
+                "date": pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d").values,
+                "close": pd.to_numeric(df["close"], errors="coerce").values,
+                "amount": _to_yi(df["amount"]).values,
+                "rank": rank,
+            })
+            parts.append(d)
+            used.append(f"{name}至{d['date'].max()}")
+        except Exception as e:
+            errors.append(f"{name}:{type(e).__name__}")
+    if not parts:
+        raise RuntimeError("全部数据源失败 → " + "；".join(errors))
+    m = pd.concat(parts).sort_values(["date", "rank"])
+    # 同一天：收盘价取优先级最高的来源；成交额取优先级最高且非空的来源
+    close = m.dropna(subset=["close"]).groupby("date")["close"].first()
+    amount = m.dropna(subset=["amount"]).groupby("date")["amount"].first()
+    out = pd.DataFrame({"close": close}).join(amount, how="left").reset_index()
+    out.insert(1, "symbol", symbol)
+    out = out[["date", "symbol", "close", "amount"]]
+    out.attrs["source"] = "、".join(used)
     return out
 
 
@@ -212,7 +241,7 @@ def notices(date, keywords, action_words):
 
 def cls_news(keywords):
     """财联社电报（最近若干条），过滤国家队相关表态。"""
-    df = _retry(ak.stock_info_global_cls, symbol="全部")
+    df = _retry(_ak("stock_info_global_cls", "stock_news_global_cls"), symbol="全部")
     if df is None or df.empty:
         return pd.DataFrame(columns=["date", "source", "code", "name", "title", "url"])
     text = (df["标题"].astype(str) + " " + df["内容"].astype(str))

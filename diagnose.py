@@ -25,7 +25,7 @@ TESTS = [
     ("东财ETF日线", lambda: ak.fund_etf_hist_em(symbol="510300", period="daily", start_date=start, end_date=end, adjust="")),
     ("东财两融", lambda: ak.stock_margin_account_info()),
     ("东财公告", lambda: ak.stock_notice_report(symbol="全部", date=d)),
-    ("财联社快讯", lambda: ak.stock_info_global_cls(symbol="全部")),
+    ("财联社快讯", lambda: getattr(ak, "stock_info_global_cls", None) and ak.stock_info_global_cls(symbol="全部") if hasattr(ak, "stock_info_global_cls") else ak.stock_news_global_cls(symbol="全部")),
     ("东财十大流通股东", lambda: ak.stock_gdfx_free_top_10_em(symbol="sh601398", date="20260630")),
 ]
 

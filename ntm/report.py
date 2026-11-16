@@ -30,7 +30,7 @@ def _esc(s):
 LEVEL_CLASS = {3: "lv3", 2: "lv2", 1: "lv1", 0: "lv0"}
 
 
-def build(daily, fl, cap, events, holders, status, out_path, lookback=250, title_suffix=""):
+def build(daily, fl, cap, events, holders, status, out_path, lookback=250, title_suffix="", latest_market=None):
     d = daily.dropna(subset=["pool_flow_yi"])
     # 只用数据覆盖过半的日期（例如上交所当天份额尚未发布时，那天先不作判断，下次运行补上）
     d = d[d["n_etf"] >= 0.5 * d["n_etf"].max()].tail(lookback)
@@ -121,7 +121,12 @@ def build(daily, fl, cap, events, holders, status, out_path, lookback=250, title
                       for k, v in status.items())
 
     lv = int(r["level"])
-    html_doc = TEMPLATE.format(
+    stale = ""
+    if latest_market and str(latest_market) > str(last_date):
+        lag = len(pd.bdate_range(pd.Timestamp(last_date) + pd.Timedelta(days=1), pd.Timestamp(latest_market)))
+        stale = (f'<div class="stale">⚠ ETF份额数据停在 {last_date}，行情已更新到 {latest_market}（滞后约 {lag} 个交易日）。'
+                 f'多为交易所份额数据延迟发布，下次运行会自动补上；若持续多天，请看底部“数据源状态”。</div>')
+    html_doc = TEMPLATE.format(stale=stale,
         last_date=last_date, suffix=_esc(title_suffix),
         verdict=_esc(r["label"]), lvclass=LEVEL_CLASS[lv],
         flow=_fmt(r["pool_flow_yi"], 1, True),
@@ -179,11 +184,13 @@ th{{color:var(--t2);font-weight:500;white-space:nowrap}} td.n{{text-align:right;
 .tw{{overflow-x:auto}} a{{color:var(--in)}}
 .legend{{display:flex;gap:16px;color:var(--t2);font-size:12px;margin:4px 0 0}}
 .sw{{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}}
+.stale{{border:1px solid var(--lv2);color:var(--t1);background:var(--card);border-radius:10px;padding:10px 14px;margin:0 0 16px}}
 .foot{{color:var(--t3);font-size:12px;margin-top:36px;line-height:1.8}}
 @media (max-width:820px){{.hero{{grid-template-columns:1fr 1fr}}.grid2{{grid-template-columns:1fr}}}}
 </style></head>
 <body><div class="wrap">
 <h1>蓝片哥 · 国家队观察日报 · {last_date}{suffix}</h1>
+{stale}
 <p class="sub">基于ETF份额变化、市场环境、公告事件与定期报告校准的推断，不是官方数据，不构成投资建议。</p>
 
 <div class="hero">
