@@ -92,7 +92,10 @@ def step_sse(con, days):
     todo = [d for d in days if d not in have]
     n, empty = 0, 0
     for i, d in enumerate(todo):
-        df = fetch.sse_shares(d, SSE_CODES)
+        try:
+            df = fetch.sse_shares(d, SSE_CODES)
+        except Exception:            # 当天份额尚未发布时接口会报错，按"无数据"处理，下次运行再补
+            df = pd.DataFrame()
         if df.empty:
             empty += 1
         else:
