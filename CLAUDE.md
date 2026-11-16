@@ -9,6 +9,8 @@
 - 本地不联网测试：`python run_daily.py --demo`
 - 每次运行先跑 `diagnose.py` 测试各数据源，结果和运行日志都提交在 `logs/last_run.log`（GitHub 的日志下载在此环境被拦，看这个文件）
 - GitHub 服务器在海外：深交所、东方财富K线常拒绝连接，`ntm/fetch.py` 里每类数据都有备用源
+- AKShare 固定在 1.20.42（新版大批函数改名）；`fetch._ak()` 兼容新旧函数名。升级前先在 CI 里看 `diagnose.py` 结果
+- 交易日历取所有指数/ETF行情日期的并集，指数多源合并（中证官网曾在 2026-11-11 后停更导致整站卡住）；网页顶部有"数据滞后"提醒
 - 存量上限：`ntm/disclosures.py` 自动下载ETF定期报告PDF解析20%披露表，`signals.holding_cap` 计算上限
 - 数据库 `data/monitor.db` 由工作流每天提交回仓库，不要手动删除
 - 用户偏好：中文交流；讲解时一次讲一段，每段内容要充实
